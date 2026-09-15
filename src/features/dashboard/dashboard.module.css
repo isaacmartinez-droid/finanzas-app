@@ -1,0 +1,61 @@
+/* Mobile order is exact (spec §25); tablet and desktop regroup the same blocks. */
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "hero"
+    "actions"
+    "alert"
+    "next"
+    "timeline"
+    "savings"
+    "recent";
+  gap: 12px;
+}
+
+.hero { grid-area: hero; }
+.actions { grid-area: actions; }
+.alert { grid-area: alert; align-self: start; }
+.next { grid-area: next; }
+.timeline { grid-area: timeline; }
+.savings { grid-area: savings; }
+.recent { grid-area: recent; }
+
+/* Section spacing (20px) before titled blocks on phones. */
+@media (max-width: 767px) {
+  .timeline,
+  .savings,
+  .recent {
+    margin-top: 8px;
+  }
+}
+
+/* Tablet: hero full width, then 2 columns (spec §71). */
+@media (min-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "hero hero"
+      "actions actions"
+      "next savings"
+      "timeline alert"
+      "recent recent";
+    gap: 16px;
+  }
+}
+
+/* Desktop: 7 / 5 (spec §75). */
+@media (min-width: 1024px) {
+  .grid {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    grid-template-areas:
+      "hero next"
+      "hero actions"
+      "timeline alert"
+      "timeline savings"
+      "recent savings";
+    gap: 20px;
+  }
+  .actions { align-self: end; }
+  .savings { align-self: start; }
+}

@@ -1,0 +1,69 @@
+/*
+ * Phones: one column in the exact spec order (§35).
+ * Tablet/laptop: two columns.
+ * ≥1280: three stacks — Horizonte | Estado + desglose | Eventos (3 / 5 / 4, spec §76).
+ * The column wrappers are `display: contents` until the 3-column layout.
+ */
+.page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "horizon"
+    "free"
+    "projection"
+    "pace"
+    "breakdown"
+    "changed"
+    "timeline";
+  gap: 12px;
+}
+
+.colA,
+.colB,
+.colC {
+  display: contents;
+}
+
+.horizon { grid-area: horizon; }
+.free { grid-area: free; }
+.projection { grid-area: projection; }
+.pace { grid-area: pace; }
+.breakdown { grid-area: breakdown; }
+.changed { grid-area: changed; }
+.timeline { grid-area: timeline; }
+
+@media (max-width: 767px) {
+  .changed,
+  .timeline {
+    margin-top: 8px;
+  }
+}
+
+@media (min-width: 768px) {
+  .page {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "horizon horizon"
+      "free projection"
+      "pace changed"
+      "breakdown timeline";
+    align-items: start;
+    gap: 16px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .page {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 5fr) minmax(0, 4fr);
+    grid-template-areas: none;
+    gap: 20px;
+  }
+  .colA,
+  .colB,
+  .colC {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+  }
+}
