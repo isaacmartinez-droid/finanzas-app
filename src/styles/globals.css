@@ -21,6 +21,8 @@
   --elevated: #ffffff;
   --border: #e2e8f0;
   --border-strong: #cbd5e1;
+  /* 3:1 against both control surfaces and the page background. */
+  --control-border: #8492a6;
 
   /* Text */
   --text: #0f172a;
@@ -105,6 +107,7 @@
   --elevated: #172033;
   --border: #273449;
   --border-strong: #334155;
+  --control-border: #64748b;
 
   --text: #f8fafc;
   --text-2: #94a3b8;
@@ -155,6 +158,7 @@
   --color-elevated: var(--elevated);
   --color-line: var(--border);
   --color-line-strong: var(--border-strong);
+  --color-control-line: var(--control-border);
 
   --color-ink: var(--text);
   --color-ink-2: var(--text-2);

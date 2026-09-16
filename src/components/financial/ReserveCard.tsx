@@ -5,10 +5,17 @@ import { cn } from "@/lib/cn";
 import { formatDayMonth } from "@/lib/dates";
 import { MoneyValue } from "./MoneyValue";
 
+export interface ReserveCardProps {
+  reserve: Reserve;
+  accountName?: string;
+  className?: string;
+  onSelect?: (reserve: Reserve) => void;
+}
+
 /** A reserve row: money that stays in the account but already has a purpose. */
-export function ReserveCard({ reserve, accountName, className }: { reserve: Reserve; accountName?: string; className?: string }) {
-  return (
-    <div className={cn("flex items-center gap-3 px-3.5 py-3", className)}>
+export function ReserveCard({ reserve, accountName, className, onSelect }: ReserveCardProps) {
+  const content = (
+    <>
       <span className="grid size-[38px] shrink-0 place-items-center rounded-[10px] bg-saving-bg text-saving">
         <Lock aria-hidden size={18} strokeWidth={1.8} />
       </span>
@@ -24,6 +31,22 @@ export function ReserveCard({ reserve, accountName, className }: { reserve: Rese
           <Badge tone="saving">{reserve.purpose === "savings" ? "Ahorro" : "Reservado"}</Badge>
         </div>
       </div>
-    </div>
+    </>
+  );
+
+  return onSelect ? (
+    <button
+      type="button"
+      onClick={() => onSelect(reserve)}
+      aria-label={`Administrar reserva ${reserve.name}`}
+      className={cn(
+        "flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors duration-150 hover:bg-subtle",
+        className,
+      )}
+    >
+      {content}
+    </button>
+  ) : (
+    <div className={cn("flex items-center gap-3 px-3.5 py-3", className)}>{content}</div>
   );
 }

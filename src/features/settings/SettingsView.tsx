@@ -71,6 +71,14 @@ export function SettingsView() {
               label="Fallar el simulador"
               description="Muestra el estado de error sin borrar lo que escribiste."
             />
+            {process.env.NODE_ENV !== "production" && (
+              <Switch
+                checked={demo.dataError}
+                onCheckedChange={(dataError) => setDemo({ dataError })}
+                label="Fallar vistas de datos"
+                description="Solo en desarrollo y pruebas: muestra el error recuperable de Inicio, Movimientos, Ahorro y Plan."
+              />
+            )}
           </div>
         </Card>
       </div>

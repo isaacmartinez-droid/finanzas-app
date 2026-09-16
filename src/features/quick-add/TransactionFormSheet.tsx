@@ -29,7 +29,21 @@ const COPY: Record<FormMode, { title: string; description: string; submit: strin
   transfer: { title: "Transferir", description: "Mueve dinero entre tus cuentas.", submit: "Transferir", toast: "Transferencia registrada" },
 };
 
-function FormBody({ mode, prefill, formId, onDone }: { mode: FormMode; prefill?: FormPrefill; formId: string; onDone: () => void }) {
+function FormBody({
+  mode,
+  prefill,
+  formId,
+  submitting,
+  onSubmittingChange,
+  onDone,
+}: {
+  mode: FormMode;
+  prefill?: FormPrefill;
+  formId: string;
+  submitting: boolean;
+  onSubmittingChange: (submitting: boolean) => void;
+  onDone: () => void;
+}) {
   const { state, snapshot, addExpense, addIncome, addReserve, transfer } = useFinance();
   const toast = useToast();
   const amountRef = useRef<HTMLInputElement>(null);
@@ -51,6 +65,7 @@ function FormBody({ mode, prefill, formId, onDone }: { mode: FormMode; prefill?:
   const reserveOverdraw = mode === "reserve" && nio > 0 && nio > Math.max(0, snapshot.free);
 
   function submit() {
+    if (submitting) return;
     const next: typeof errors = {};
     if (parsed <= 0) next.amount = "Escribe un monto mayor que cero.";
     else if ((mode === "expense" || mode === "transfer") && account && nio > account.balance)
@@ -64,6 +79,7 @@ function FormBody({ mode, prefill, formId, onDone }: { mode: FormMode; prefill?:
     }
     if (next.title) return;
 
+    onSubmittingChange(true);
     const clean = title.trim();
     if (mode === "expense") addExpense({ amount: parsed, currency, title: clean, categoryId, accountId });
     if (mode === "income") addIncome({ amount: parsed, currency, title: clean, categoryId, accountId });
@@ -109,6 +125,7 @@ function FormBody({ mode, prefill, formId, onDone }: { mode: FormMode; prefill?:
     >
       {(mode === "expense" || mode === "income") && (
         <SegmentedControl
+          disabled={submitting}
           label="Moneda"
           value={currency}
           onValueChange={setCurrency}
@@ -126,6 +143,7 @@ function FormBody({ mode, prefill, formId, onDone }: { mode: FormMode; prefill?:
         value={amount}
         onValueChange={setAmount}
         error={errors.amount}
+        disabled={submitting}
         hint={
           currency === "USD" && parsed > 0 && (mode === "expense" || mode === "income") ? (
             <MoneyValue amount={nio} approx tone="inherit" decimals={2} />
@@ -152,6 +170,7 @@ function FormBody({ mode, prefill, formId, onDone }: { mode: FormMode; prefill?:
           onChange={(e) => setTitle(e.target.value)}
           error={errors.title}
           maxLength={80}
+          disabled={submitting}
         />
       )}
 
@@ -160,6 +179,7 @@ function FormBody({ mode, prefill, formId, onDone }: { mode: FormMode; prefill?:
           label="Categoría"
           value={categoryId}
           onValueChange={setCategory}
+          disabled={submitting}
           options={CATEGORY_OPTIONS[mode].map((id) => ({ value: id, label: CATEGORIES[id].label }))}
         />
       )}
@@ -171,6 +191,7 @@ function FormBody({ mode, prefill, formId, onDone }: { mode: FormMode; prefill?:
           setAccount(id);
           if (id === toId) setToId(state.accounts.find((a) => a.id !== id)?.id ?? "");
         }}
+        disabled={submitting}
         options={accountChips}
       />
 
@@ -179,6 +200,7 @@ function FormBody({ mode, prefill, formId, onDone }: { mode: FormMode; prefill?:
           label="Hacia"
           value={toId}
           onValueChange={setToId}
+          disabled={submitting}
           options={state.accounts.filter((a) => a.id !== accountId).map((a) => ({ value: a.id, label: a.name }))}
         />
       )}
@@ -192,6 +214,7 @@ export function TransactionFormSheet() {
   const formId = useId();
   const [lastMode, setLastMode] = useState<FormMode>("expense");
   const [instance, setInstance] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
   const [prevForm, setPrevForm] = useState(form);
 
   // Keep the last mode while the sheet animates out; remount fields on every open.
@@ -200,6 +223,7 @@ export function TransactionFormSheet() {
     if (form) {
       setLastMode(form.mode);
       setInstance((n) => n + 1);
+      setSubmitting(false);
     }
   }
 
@@ -214,16 +238,24 @@ export function TransactionFormSheet() {
       description={copy.description}
       footer={
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={closeForm} className="flex-1">
+          <Button variant="secondary" onClick={closeForm} className="flex-1" disabled={submitting}>
             Cancelar
           </Button>
-          <Button type="submit" form={formId} className="flex-[2]">
+          <Button type="submit" form={formId} className="flex-[2]" loading={submitting}>
             {copy.submit}
           </Button>
         </div>
       }
     >
-      <FormBody key={instance} mode={mode} prefill={form?.prefill} formId={formId} onDone={closeForm} />
+      <FormBody
+        key={instance}
+        mode={mode}
+        prefill={form?.prefill}
+        formId={formId}
+        submitting={submitting}
+        onSubmittingChange={setSubmitting}
+        onDone={closeForm}
+      />
     </Sheet>
   );
 }

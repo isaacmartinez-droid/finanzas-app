@@ -43,6 +43,7 @@ export const SimulationInput = forwardRef<HTMLInputElement, SimulationInputProps
     >
       <div className="flex justify-center">
         <SegmentedControl
+          disabled={submitting}
           label="Moneda del gasto"
           value={draft.currency}
           onValueChange={(currency) => onChange({ currency })}
@@ -62,6 +63,7 @@ export const SimulationInput = forwardRef<HTMLInputElement, SimulationInputProps
         value={draft.amount}
         onValueChange={(amount) => onChange({ amount })}
         error={amountError}
+        disabled={submitting}
         hint={
           parsed ? (
             <MoneyValue amount={convert(parsed, draft.currency, other, exchangeRate)} currency={other} decimals={2} approx tone="inherit" />
@@ -79,6 +81,7 @@ export const SimulationInput = forwardRef<HTMLInputElement, SimulationInputProps
         value={draft.concept}
         onChange={(e) => onChange({ concept: e.target.value })}
         maxLength={80}
+        disabled={submitting}
       />
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-1 xl:grid-cols-2">
@@ -87,18 +90,20 @@ export const SimulationInput = forwardRef<HTMLInputElement, SimulationInputProps
           value={draft.accountId}
           onValueChange={(accountId) => onChange({ accountId })}
           options={accounts.filter((a) => a.kind === "operational").map((a) => ({ value: a.id, label: a.name }))}
+          disabled={submitting}
         />
         <Select
           label="Tipo de gasto"
           value={draft.kind}
           onValueChange={(kind) => onChange({ kind: kind as SpendKind })}
           options={(Object.keys(spendKindLabels) as SpendKind[]).map((k) => ({ value: k, label: spendKindLabels[k] }))}
+          disabled={submitting}
         />
       </div>
 
-      <Button type="submit" fullWidth className="mt-5 min-h-12" disabled={submitting}>
+      <Button type="submit" fullWidth className="mt-5 min-h-12" loading={submitting}>
         <Calculator aria-hidden size={18} strokeWidth={1.8} />
-        {submitting ? "Calculando…" : "Simular impacto"}
+        Simular impacto
       </Button>
     </form>
   );

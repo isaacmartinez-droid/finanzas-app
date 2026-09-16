@@ -6,6 +6,10 @@ Prototipo navegable, **solo frontend**, construido alrededor de una pregunta:
 
 Todo funciona con **datos simulados en memoria**. No hay backend, API, base de datos, autenticación ni persistencia (solo `localStorage` para tema, privacidad y ancho del menú).
 
+## Documentación del proyecto
+
+Consulta [docs/README.md](docs/README.md) para retomar el trabajo: contexto breve, arquitectura, modelo financiero, funcionalidades, pruebas, historial y pendientes. Lee el índice y solo el documento relacionado con tu tarea; no es necesario reconstruir conversaciones anteriores.
+
 ## Cómo correrlo
 
 ```bash
@@ -17,6 +21,22 @@ npm run typecheck
 
 Stack: Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · Lucide. Sin otras dependencias de runtime.
 
+Inter se sirve desde `src/app/fonts/InterVariable.woff2` con `next/font/local` (licencia incluida). El build no descarga fuentes de Google Fonts.
+
+## Pruebas reproducibles
+
+```bash
+npm ci
+npx playwright install chromium   # solo la primera vez; necesita descargar el navegador
+npm test
+npm run typecheck
+npm run build
+```
+
+Playwright es la única dependencia nueva de desarrollo. `npm test` inicia automáticamente el servidor en `127.0.0.1:3100`. Cubre el modelo financiero, Dashboard/privacidad, Quick Add/Escape/foco, estados del simulador, anchos 320/375/768/1366 y administración de Plan.
+
+Si ya tienes `npm run dev` abierto en el puerto 3000, puedes reutilizarlo en PowerShell con `$env:PLAYWRIGHT_BASE_URL = 'http://localhost:3000'` antes de ejecutar `npm test`, o cerrar ese servidor antes de las pruebas. Usa el mismo hostname del servidor para respetar la protección de origen de Next.js.
+
 ## Pantallas
 
 | Ruta | Pantalla |
@@ -25,7 +45,7 @@ Stack: Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · Lu
 | `/hasta-mi-pago` | Hasta mi pago — cálculo, ritmo, proyección, timeline |
 | `/movimientos` | Movimientos — lista (móvil/tablet) → tabla (escritorio) |
 | `/simulador` | ¿Puedo gastar esto? (no es un tab; se abre con **+**, "Simular" o botones contextuales) |
-| `/plan` | Shell de Plan (reservas, recurrencias y placeholders) |
+| `/plan` | Presupuestos por categoría/ciclo, gestión de reservas y administración básica de recurrencias |
 | `/ahorro`, `/configuracion` | Ahorro y ajustes/escenarios de demo |
 | `/deudas`, `/reportes` | Placeholders |
 
@@ -39,12 +59,13 @@ src/
   components/
     ui/                design system: Button, IconButton, Input, MoneyInput, Select,
                        SegmentedControl, Tabs/ChipGroup, Badge, Card, Sheet (BottomSheet/
-                       Drawer/Modal), Accordion, Progress, Skeleton, EmptyState, Alert, Switch
+                       Drawer/Modal), Accordion, Progress, Skeleton, EmptyState, AsyncErrorState, Alert, Switch
     financial/         MoneyValue, FinancialStatusBadge, AvailableMoneyHero, FinancialSummary,
                        QuickActions, FinancialAlert, UpcomingIncomeCard, ProjectionCard,
                        FinancialTimeline, TransactionItem, TransactionTable, SavingsCard,
                        ReserveCard, ProtectionList, SimulationInput, SimulationResult,
-                       DecisionAlternatives, CashFlowBreakdown, WhatChangedCard, PaceCard
+                       DecisionAlternatives, CashFlowBreakdown, DashboardCalculationPreview,
+                       IncomeAllocationCard, WhatChangedCard, PaceCard
     navigation/        AppShell, header, bottom nav, rail, sidebar
   features/            vistas por dominio (dashboard, cash-flow, transactions, simulator, …)
   hooks/               estado en memoria (use-finance), preferencias, toasts, overlays
@@ -95,8 +116,15 @@ Desde el avatar o **Configuración**:
 - **Escenarios**: Cómodo · Ajustado (base) · En riesgo · Déficit · Montos grandes (millones, para revisar que el hero no se trunque).
 - **Carga lenta**: alarga los skeletons al cambiar de escenario.
 - **Fallar el simulador**: muestra el estado de error sin borrar lo que escribiste.
+- **Fallar vistas de datos** (solo desarrollo): permite probar `AsyncErrorState` y el reintento en Inicio, Movimientos, Ahorro y Plan. No se puede activar en producción.
 
 También puedes registrar gastos, ingresos, reservas y transferencias; marcar un ingreso esperado como recibido y omitir una recurrencia. Cada acción recalcula todas las pantallas en memoria.
+
+En Plan puedes crear/editar/eliminar límites de presupuesto por categoría para el ciclo actual, editar/liberar reservas y cambiar la frecuencia o pausar/reanudar recurrencias existentes. Los presupuestos no separan dinero ni alteran el dinero libre. Aportes y Calendario siguen siendo secciones futuras.
+
+**Pendiente P1 — DASH-11:** `IncomeAllocationCard` muestra el último ingreso recibido, el flujo y el remanente, pero el modelo no define ninguna regla de ahorro automático ni su vínculo con ese ingreso. Se indica **“No configurado”** y no se aplica un monto o porcentaje inventado. Para cerrar ese paso hace falta definir la regla financiera; no requiere añadir backend en esta iteración.
+
+Reporte de cambios y verificaciones: [docs/P1-implementation-report.md](docs/P1-implementation-report.md).
 
 ## Accesibilidad y decisiones de diseño
 

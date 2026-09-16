@@ -10,6 +10,8 @@ build/
 
 # Tests and tooling caches
 coverage/
+playwright-report/
+test-results/
 .turbo/
 .eslintcache
 

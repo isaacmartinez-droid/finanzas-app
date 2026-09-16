@@ -41,6 +41,7 @@ function base(): FinanceState {
     comfortDailyTarget: mockComfortDailyTarget,
     accounts: mockAccounts,
     reserves: mockReserves,
+    budgets: [],
     commitments: mockCommitments,
     transactions: [...mockTransactions, ...mockUpcomingEvents],
     changesToday: mockChangesToday,

@@ -1,8 +1,8 @@
-import { CircleAlert, CircleCheck, RotateCcw, TriangleAlert } from "lucide-react";
+import { CircleAlert, CircleCheck, TriangleAlert } from "lucide-react";
 import type { SimulationOutcome, SimulationResultData } from "@/features/simulator/simulate";
-import { Button } from "@/components/ui/Button";
+import { AsyncErrorState } from "@/components/ui/AsyncErrorState";
 import { Card } from "@/components/ui/Card";
-import { Alert, LoadingRegion, Skeleton } from "@/components/ui/Feedback";
+import { LoadingRegion, Skeleton } from "@/components/ui/Feedback";
 import { cn } from "@/lib/cn";
 import { MoneyValue } from "./MoneyValue";
 
@@ -67,20 +67,13 @@ export function SimulationResult({ status, result, onRetry, className }: Simulat
 
   if (status === "error") {
     return (
-      <Alert
-        role="alert"
-        tone="risk"
+      <AsyncErrorState
         title="No pudimos calcular el impacto."
+        description="Intenta nuevamente. Lo que escribiste sigue en el formulario."
+        retryLabel="Intentar nuevamente"
+        onRetry={onRetry ?? (() => undefined)}
         className={className}
-        action={
-          <Button variant="secondary" size="sm" onClick={onRetry}>
-            <RotateCcw aria-hidden size={16} strokeWidth={1.8} />
-            Intentar nuevamente
-          </Button>
-        }
-      >
-        Intenta nuevamente. Lo que escribiste sigue en el formulario.
-      </Alert>
+      />
     );
   }
 

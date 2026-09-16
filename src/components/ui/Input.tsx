@@ -45,7 +45,9 @@ export function FieldMessage({ id, error, hint }: { id: string; error?: string; 
 }
 
 export const inputClasses =
-  "h-11 w-full min-w-0 rounded-input border border-line bg-surface px-3.5 text-[15px] text-ink transition-colors duration-150 hover:border-line-strong focus:border-primary focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-primary aria-[invalid=true]:border-risk";
+  "h-11 w-full min-w-0 rounded-input border border-control-line bg-surface px-3.5 text-[15px] text-ink transition-colors duration-150 enabled:hover:border-ink-2 focus:border-primary focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-primary disabled:cursor-not-allowed disabled:border-control-line disabled:bg-neutral-bg disabled:text-ink-2 aria-[invalid=true]:border-risk";
+
+export const textAreaClasses = cn(inputClasses, "h-auto min-h-24 py-3");
 
 export interface TextFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
@@ -73,6 +75,38 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function T
         aria-invalid={error ? true : undefined}
         aria-describedby={error || hint ? messageId : undefined}
         className={cn(inputClasses, "mt-1.5")}
+        {...props}
+      />
+      <FieldMessage id={messageId} error={error} hint={hint} />
+    </div>
+  );
+});
+
+export interface TextAreaFieldProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+  label: string;
+  hint?: React.ReactNode;
+  error?: string;
+  optional?: boolean;
+}
+
+export const TextAreaField = forwardRef<HTMLTextAreaElement, TextAreaFieldProps>(function TextAreaField(
+  { label, hint, error, optional, id: idProp, className, ...props },
+  ref,
+) {
+  const autoId = useId();
+  const id = idProp ?? autoId;
+  const messageId = `${id}-msg`;
+  return (
+    <div className={className}>
+      <FieldLabel htmlFor={id} optional={optional}>
+        {label}
+      </FieldLabel>
+      <textarea
+        ref={ref}
+        id={id}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error || hint ? messageId : undefined}
+        className={cn(textAreaClasses, "mt-1.5")}
         {...props}
       />
       <FieldMessage id={messageId} error={error} hint={hint} />

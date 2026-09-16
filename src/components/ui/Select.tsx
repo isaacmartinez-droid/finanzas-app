@@ -47,7 +47,10 @@ export function Select({ label, options, value, onValueChange, hint, error, clas
           aria-hidden
           size={16}
           strokeWidth={1.8}
-          className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-ink-2"
+          className={cn(
+            "pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-ink-2",
+            props.disabled && "text-ink-3",
+          )}
         />
       </div>
       <FieldMessage id={messageId} error={error} hint={hint} />

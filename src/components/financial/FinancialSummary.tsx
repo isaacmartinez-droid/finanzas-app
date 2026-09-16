@@ -7,7 +7,7 @@ export interface SummaryItem {
   amount: number;
   tone?: MoneyTone;
   /** Small colored marker that ties the figure to its meaning (violet = reserved/protected). */
-  marker?: "operating" | "reserved" | "committed" | "savings";
+  marker?: "operating" | "reserved" | "committed" | "savings" | "cushion";
 }
 
 const markerClass: Record<NonNullable<SummaryItem["marker"]>, string> = {
@@ -15,6 +15,7 @@ const markerClass: Record<NonNullable<SummaryItem["marker"]>, string> = {
   reserved: "bg-saving-soft",
   committed: "bg-line-strong",
   savings: "bg-saving",
+  cushion: "bg-warning",
 };
 
 /** 2×2 grid inside the hero (spec §27). */

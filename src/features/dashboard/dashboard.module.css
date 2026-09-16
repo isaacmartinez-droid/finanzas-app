@@ -7,6 +7,7 @@
     "actions"
     "alert"
     "next"
+    "allocation"
     "timeline"
     "savings"
     "recent";
@@ -17,6 +18,7 @@
 .actions { grid-area: actions; }
 .alert { grid-area: alert; align-self: start; }
 .next { grid-area: next; }
+.allocation { grid-area: allocation; }
 .timeline { grid-area: timeline; }
 .savings { grid-area: savings; }
 .recent { grid-area: recent; }
@@ -38,6 +40,7 @@
       "hero hero"
       "actions actions"
       "next savings"
+      "allocation savings"
       "timeline alert"
       "recent recent";
     gap: 16px;
@@ -51,6 +54,7 @@
     grid-template-areas:
       "hero next"
       "hero actions"
+      "timeline allocation"
       "timeline alert"
       "timeline savings"
       "recent savings";

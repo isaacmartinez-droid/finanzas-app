@@ -17,6 +17,7 @@ export interface SegmentedControlProps<T extends string> {
   onValueChange: (value: T) => void;
   className?: string;
   fullWidth?: boolean;
+  disabled?: boolean;
 }
 
 /** Radio-group semantics with roving focus (← →). */
@@ -27,6 +28,7 @@ export function SegmentedControl<T extends string>({
   onValueChange,
   className,
   fullWidth,
+  disabled,
 }: SegmentedControlProps<T>) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -43,6 +45,7 @@ export function SegmentedControl<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
+      aria-disabled={disabled || undefined}
       className={cn("inline-flex rounded-[12px] bg-neutral-bg p-0.5", fullWidth && "flex w-full", className)}
     >
       {options.map((o, i) => {
@@ -54,6 +57,7 @@ export function SegmentedControl<T extends string>({
               refs.current[i] = el;
             }}
             type="button"
+            disabled={disabled}
             role="radio"
             aria-checked={selected}
             aria-label={o.ariaLabel}
@@ -62,7 +66,13 @@ export function SegmentedControl<T extends string>({
             onKeyDown={(e) => onKeyDown(e, i)}
             className={cn(
               "min-h-11 min-w-14 flex-1 whitespace-nowrap rounded-[10px] px-2.5 text-[14px] font-semibold transition-colors duration-150",
-              selected ? "bg-surface text-ink shadow-card dark:bg-elevated" : "text-ink-2 hover:text-ink",
+              disabled
+                ? selected
+                  ? "cursor-not-allowed bg-surface text-ink-2 shadow-card dark:bg-elevated"
+                  : "cursor-not-allowed text-ink-3"
+                : selected
+                  ? "bg-surface text-ink shadow-card dark:bg-elevated"
+                  : "text-ink-2 hover:text-ink",
             )}
           >
             {o.label}

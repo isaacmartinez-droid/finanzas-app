@@ -4,17 +4,20 @@ import { useState } from "react";
 import { ArrowDownLeft, ArrowUpRight, CalendarClock, Calculator, Lock } from "lucide-react";
 import type { Transaction } from "@/types/finance";
 import { AvailableMoneyHero } from "@/components/financial/AvailableMoneyHero";
+import { DashboardCalculationPreview } from "@/components/financial/DashboardCalculationPreview";
 import { FinancialAlert } from "@/components/financial/FinancialAlert";
 import { FinancialSummary } from "@/components/financial/FinancialSummary";
 import { FinancialTimeline } from "@/components/financial/FinancialTimeline";
+import { IncomeAllocationCard } from "@/components/financial/IncomeAllocationCard";
 import { QuickActions } from "@/components/financial/QuickActions";
 import { SavingsCard } from "@/components/financial/SavingsCard";
 import { TransactionItem } from "@/components/financial/TransactionItem";
 import { UpcomingIncomeCard } from "@/components/financial/UpcomingIncomeCard";
 import { WhatChangedPreview } from "@/components/financial/WhatChangedCard";
 import { Card, SectionHeader } from "@/components/ui/Card";
+import { AsyncErrorState } from "@/components/ui/AsyncErrorState";
 import { EmptyState } from "@/components/ui/Feedback";
-import { isUpcoming, nextIncome, timelineEvents } from "@/lib/finance";
+import { isUpcoming, lastReceivedIncome, nextIncome, timelineEvents } from "@/lib/finance";
 import { toTimelineEntry } from "@/lib/timeline";
 import { TransactionDetailSheet } from "@/features/transactions/TransactionDetailSheet";
 import { useFinance } from "@/hooks/use-finance";
@@ -23,13 +26,23 @@ import { DashboardSkeleton } from "./DashboardSkeleton";
 import s from "./dashboard.module.css";
 
 export function DashboardView() {
-  const { state, snapshot, isLoading } = useFinance();
+  const { state, snapshot, isLoading, demo, setDemo } = useFinance();
   const { openForm } = useShell();
   const [selected, setSelected] = useState<Transaction | null>(null);
+
+  if (demo.dataError)
+    return (
+      <AsyncErrorState
+        className="mx-auto max-w-[680px]"
+        description="No pudimos actualizar tu dinero libre ni los próximos movimientos."
+        onRetry={() => setDemo({ dataError: false })}
+      />
+    );
 
   if (isLoading) return <DashboardSkeleton />;
 
   const income = nextIncome(state);
+  const receivedIncome = lastReceivedIncome(state);
   const timeline = timelineEvents(state).slice(0, 4).map((t) => toTimelineEntry(t, state));
   const recent = state.transactions
     .filter((t) => !isUpcoming(t))
@@ -60,9 +73,10 @@ export function DashboardView() {
             { id: "operating", label: "Saldo operativo", amount: snapshot.operating, marker: "operating" },
             { id: "reserved", label: "Reservado", amount: snapshot.reserved, marker: "reserved" },
             { id: "committed", label: "Comprometido", amount: snapshot.committed, marker: "committed" },
-            { id: "savings", label: "Ahorro protegido", amount: snapshot.protectedSavings, marker: "savings", tone: "saving" },
+            { id: "cushion", label: "Colchón", amount: snapshot.cushion, marker: "cushion" },
           ]}
         />
+        <DashboardCalculationPreview snapshot={snapshot} className="mt-3" />
       </AvailableMoneyHero>
 
       <QuickActions
@@ -93,6 +107,14 @@ export function DashboardView() {
             description="Cuando programes un ingreso aparecerá aquí, sin sumarse a tu dinero libre."
           />
         </Card>
+      )}
+
+      {receivedIncome && (
+        <IncomeAllocationCard
+          className={s.allocation}
+          income={receivedIncome}
+          exchangeRate={state.exchangeRate}
+        />
       )}
 
       <Card className={s.timeline} aria-labelledby="dash-timeline">

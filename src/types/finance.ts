@@ -29,6 +29,14 @@ export interface Reserve {
   note?: string;
 }
 
+/** A category spending limit for the current pay cycle. */
+export interface Budget {
+  id: string;
+  categoryId: CategoryId;
+  /** Limit in NIO. Budgets organize spending; they do not reserve money. */
+  amount: number;
+}
+
 export interface Commitment {
   id: string;
   name: string;
@@ -70,6 +78,8 @@ export interface AmountLine {
 export interface Recurrence {
   frequency: "Semanal" | "Quincenal" | "Mensual";
   nextDate?: ISODate;
+  /** Paused series stay visible in Plan but leave projections until resumed. */
+  active?: boolean;
 }
 
 export interface Transaction {
@@ -130,6 +140,7 @@ export interface FinanceState {
   comfortDailyTarget: number;
   accounts: Account[];
   reserves: Reserve[];
+  budgets: Budget[];
   commitments: Commitment[];
   transactions: Transaction[];
   changesToday: DailyChange[];

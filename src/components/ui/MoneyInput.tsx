@@ -17,6 +17,7 @@ export interface MoneyInputProps {
   id?: string;
   className?: string;
   autoFocus?: boolean;
+  disabled?: boolean;
 }
 
 /**
@@ -24,7 +25,7 @@ export interface MoneyInputProps {
  * The hero variant is the 28px centered input used by the simulator.
  */
 export const MoneyInput = forwardRef<HTMLInputElement, MoneyInputProps>(function MoneyInput(
-  { label, value, onValueChange, currency, error, hint, size = "md", id: idProp, className, autoFocus },
+  { label, value, onValueChange, currency, error, hint, size = "md", id: idProp, className, autoFocus, disabled },
   ref,
 ) {
   const autoId = useId();
@@ -48,16 +49,23 @@ export const MoneyInput = forwardRef<HTMLInputElement, MoneyInputProps>(function
         {label}
       </label>
       <div
-        onClick={() => inputRef.current?.focus()}
+        onClick={() => !disabled && inputRef.current?.focus()}
         className={cn(
-          "mt-2 flex min-w-0 cursor-text items-baseline overflow-hidden rounded-input border bg-surface transition-colors duration-150 focus-within:border-primary focus-within:outline-2 focus-within:outline-offset-0 focus-within:outline-primary",
-          error ? "border-risk" : "border-line hover:border-line-strong",
+          "mt-2 flex min-w-0 items-baseline overflow-hidden rounded-input border transition-colors duration-150",
+          disabled
+            ? "cursor-not-allowed border-control-line bg-neutral-bg text-ink-2"
+            : "cursor-text bg-surface focus-within:border-primary focus-within:outline-2 focus-within:outline-offset-0 focus-within:outline-primary",
+          error ? "border-risk" : !disabled && "border-control-line hover:border-ink-2",
           hero ? "justify-center px-4 py-3.5" : "px-3.5 py-2",
         )}
       >
         <span
           aria-hidden
-          className={cn("money shrink-0 font-bold text-ink-2", hero ? "text-[28px] leading-9" : "text-[20px] leading-7")}
+          className={cn(
+            "money shrink-0 font-bold",
+            "text-ink-2",
+            hero ? "text-[28px] leading-9" : "text-[20px] leading-7",
+          )}
         >
           {CURRENCY_SYMBOL[currency]}
         </span>
@@ -69,6 +77,7 @@ export const MoneyInput = forwardRef<HTMLInputElement, MoneyInputProps>(function
           autoComplete="off"
           enterKeyHint="done"
           autoFocus={autoFocus}
+          disabled={disabled}
           placeholder="0.00"
           value={value}
           onChange={(e) => onValueChange(sanitizeAmountInput(e.target.value))}
@@ -80,7 +89,7 @@ export const MoneyInput = forwardRef<HTMLInputElement, MoneyInputProps>(function
           aria-describedby={error || hint ? messageId : undefined}
           style={hero ? { width: `calc(${chars}ch + 4px)` } : undefined}
           className={cn(
-            "money min-w-0 bg-transparent font-bold text-ink outline-none placeholder:text-ink-3",
+            "money min-w-0 bg-transparent font-bold text-ink outline-none placeholder:text-ink-3 disabled:cursor-not-allowed disabled:text-ink-2",
             hero ? "max-w-full text-[28px] leading-9" : "flex-1 text-[20px] leading-7",
           )}
         />

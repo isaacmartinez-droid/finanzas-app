@@ -1,20 +1,34 @@
 "use client";
 
+import { useState } from "react";
 import { ArrowLeftRight, PiggyBank } from "lucide-react";
+import type { Reserve } from "@/types/finance";
 import { MoneyValue } from "@/components/financial/MoneyValue";
 import { ReserveCard } from "@/components/financial/ReserveCard";
 import { SavingsCard } from "@/components/financial/SavingsCard";
 import { Button } from "@/components/ui/Button";
 import { Card, SectionHeader } from "@/components/ui/Card";
+import { AsyncErrorState } from "@/components/ui/AsyncErrorState";
 import { EmptyState } from "@/components/ui/Feedback";
 import { savingsAccounts } from "@/lib/finance";
 import { useFinance } from "@/hooks/use-finance";
 import { useShell } from "@/hooks/use-shell";
+import { ReserveDetailSheet } from "@/features/plan/ReserveDetailSheet";
 
 export function SavingsView() {
-  const { state, snapshot } = useFinance();
+  const { state, snapshot, demo, setDemo } = useFinance();
   const { openForm } = useShell();
+  const [selectedReserve, setSelectedReserve] = useState<Reserve | null>(null);
   const savingReserves = state.reserves.filter((r) => r.purpose === "savings");
+
+  if (demo.dataError)
+    return (
+      <AsyncErrorState
+        className="mx-auto max-w-[680px]"
+        description="No pudimos actualizar tus cuentas de ahorro ni tus reservas pendientes."
+        onRetry={() => setDemo({ dataError: false })}
+      />
+    );
 
   return (
     <div className="mx-auto grid max-w-[1000px] grid-cols-1 gap-4 md:grid-cols-2 md:items-start">
@@ -46,7 +60,12 @@ export function SavingsView() {
           {savingReserves.length ? (
             <div className="divide-y divide-line">
               {savingReserves.map((r) => (
-                <ReserveCard key={r.id} reserve={r} accountName={state.accounts.find((a) => a.id === r.accountId)?.shortName} />
+                <ReserveCard
+                  key={r.id}
+                  reserve={r}
+                  accountName={state.accounts.find((a) => a.id === r.accountId)?.shortName}
+                  onSelect={setSelectedReserve}
+                />
               ))}
             </div>
           ) : (
@@ -58,6 +77,7 @@ export function SavingsView() {
           )}
         </Card>
       </div>
+      <ReserveDetailSheet reserve={selectedReserve} onClose={() => setSelectedReserve(null)} />
     </div>
   );
 }

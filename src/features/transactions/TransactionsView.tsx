@@ -7,6 +7,7 @@ import { TransactionItem } from "@/components/financial/TransactionItem";
 import { TransactionTable, type TransactionSection } from "@/components/financial/TransactionTable";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { AsyncErrorState } from "@/components/ui/AsyncErrorState";
 import { Alert, EmptyState, LoadingRegion, Skeleton } from "@/components/ui/Feedback";
 import { SearchInput } from "@/components/ui/Input";
 import { Tabs } from "@/components/ui/Tabs";
@@ -37,7 +38,7 @@ const SECTION_META = {
 } as const;
 
 export function TransactionsView() {
-  const { state, isLoading } = useFinance();
+  const { state, isLoading, demo, setDemo } = useFinance();
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<TransactionFilters>(DEFAULT_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -52,6 +53,15 @@ export function TransactionsView() {
     .map((id) => ({ id, label: SECTION_META[id].label, items: groups[id] }))
     .filter((sct) => sct.items.length > 0);
   const filterCount = activeFilterCount(filters);
+
+  if (demo.dataError)
+    return (
+      <AsyncErrorState
+        className="mx-auto max-w-[680px]"
+        description="No pudimos cargar tus movimientos. Tu búsqueda y tus filtros siguen aquí."
+        onRetry={() => setDemo({ dataError: false })}
+      />
+    );
 
   return (
     <div className="mx-auto max-w-[1100px]">

@@ -1,5 +1,6 @@
 import type {
   Account,
+  Budget,
   FinanceState,
   FinancialSnapshot,
   FinancialStatus,
@@ -54,7 +55,25 @@ export function computePace(free: number, status: FinancialStatus, days: number)
   return { share, daily, distributable, conserved: round2(available - distributable) };
 }
 
-export const isUpcoming = (t: Transaction) => t.status === "expected" || t.status === "scheduled";
+export const isUpcoming = (t: Transaction) =>
+  (t.status === "expected" || t.status === "scheduled") && t.recurrence?.active !== false;
+
+/** Amount already spent against a category budget during the current pay cycle. */
+export function budgetSpent(state: FinanceState, budget: Budget): number {
+  return sum(
+    state.transactions
+      .filter(
+        (t) =>
+          t.type === "expense" &&
+          t.status === "paid" &&
+          t.date >= state.cycleStart &&
+          t.date <= state.today &&
+          (t.categoryId === budget.categoryId ||
+            (budget.categoryId === "food" && t.categoryId === "groceries")),
+      )
+      .map((t) => toNio(t.amount, t.currency, state.exchangeRate)),
+  );
+}
 
 /** Events strictly between today and payday that move free money. */
 function eventsBeforePayday(state: FinanceState): Transaction[] {
@@ -124,6 +143,12 @@ export function nextIncome(state: FinanceState): Transaction | undefined {
   return state.transactions
     .filter((t) => t.type === "income" && t.status === "expected" && t.date >= state.today)
     .sort((a, b) => a.date.localeCompare(b.date))[0];
+}
+
+export function lastReceivedIncome(state: FinanceState): Transaction | undefined {
+  return state.transactions
+    .filter((transaction) => transaction.type === "income" && transaction.status === "received")
+    .sort((a, b) => b.date.localeCompare(a.date))[0];
 }
 
 /** Today's realized movements plus everything scheduled until payday. */

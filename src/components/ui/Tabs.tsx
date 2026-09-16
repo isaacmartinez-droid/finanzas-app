@@ -89,12 +89,14 @@ export function ChipGroup<T extends string>({
   value,
   onValueChange,
   className,
+  disabled,
 }: {
   label: string;
   options: ChipOption<T>[];
   value: T;
   onValueChange: (value: T) => void;
   className?: string;
+  disabled?: boolean;
 }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   return (
@@ -110,6 +112,7 @@ export function ChipGroup<T extends string>({
                 refs.current[i] = el;
               }}
               type="button"
+              disabled={disabled}
               role="radio"
               aria-checked={selected}
               tabIndex={selected ? 0 : -1}
@@ -124,9 +127,13 @@ export function ChipGroup<T extends string>({
               }}
               className={cn(
                 "hit-area inline-flex h-8 items-center rounded-full px-3.5 text-[13px] font-semibold transition-colors duration-150",
-                selected
-                  ? "bg-primary-solid text-on-primary"
-                  : "border border-line bg-surface text-ink-2 hover:border-line-strong hover:text-ink",
+                disabled
+                  ? selected
+                    ? "cursor-not-allowed border border-control-line bg-neutral-bg text-ink-2"
+                    : "cursor-not-allowed border border-control-line bg-surface text-ink-3"
+                  : selected
+                    ? "bg-primary-solid text-on-primary"
+                    : "border border-line bg-surface text-ink-2 hover:border-line-strong hover:text-ink",
               )}
             >
               {o.label}

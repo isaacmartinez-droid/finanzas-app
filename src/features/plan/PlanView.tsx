@@ -1,22 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarDays, HandCoins, Lock, Plus, Repeat, Wallet } from "lucide-react";
-import type { Transaction } from "@/types/finance";
+import { CalendarDays, ChevronRight, HandCoins, Lock, Plus, Repeat, Wallet } from "lucide-react";
+import type { Budget, Reserve, Transaction } from "@/types/finance";
 import { MoneyValue } from "@/components/financial/MoneyValue";
 import { ReserveCard } from "@/components/financial/ReserveCard";
+import { AsyncErrorState } from "@/components/ui/AsyncErrorState";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { EmptyState } from "@/components/ui/Feedback";
+import { EmptyState, Progress } from "@/components/ui/Feedback";
 import { Tabs } from "@/components/ui/Tabs";
 import { CATEGORIES } from "@/lib/categories";
 import { cn } from "@/lib/cn";
 import { formatDayMonth } from "@/lib/dates";
-import { isUpcoming } from "@/lib/finance";
+import { budgetSpent, isUpcoming } from "@/lib/finance";
 import { useFinance } from "@/hooks/use-finance";
 import { useShell } from "@/hooks/use-shell";
 import { useToast } from "@/hooks/use-toast";
+import { BudgetDetailSheet } from "./BudgetDetailSheet";
+import { RecurringDetailSheet } from "./RecurringDetailSheet";
+import { ReserveDetailSheet } from "./ReserveDetailSheet";
 
 type PlanTab = "presupuestos" | "reservas" | "recurrencias" | "aportes" | "calendario";
 
@@ -28,39 +32,59 @@ const TABS: { value: PlanTab; label: string }[] = [
   { value: "calendario", label: "Calendario" },
 ];
 
-/** Plan shell for this phase (spec §62). The simulator deliberately does not live here. */
+/** MVP Plan: in-memory budgets, reserves and recurring-series administration. */
 export function PlanView() {
-  const { state, snapshot } = useFinance();
+  const { state, snapshot, demo, setDemo } = useFinance();
   const { openForm } = useShell();
   const toast = useToast();
   const [tab, setTab] = useState<PlanTab>("reservas");
+  const [selectedReserve, setSelectedReserve] = useState<Reserve | null>(null);
+  const [selectedRecurring, setSelectedRecurring] = useState<Transaction | null>(null);
+  const [budgetOpen, setBudgetOpen] = useState(false);
+  const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null);
 
   useEffect(() => {
     const hash = window.location.hash.replace("#", "") as PlanTab;
-    if (TABS.some((t) => t.value === hash)) setTab(hash);
+    if (TABS.some((item) => item.value === hash)) setTab(hash);
   }, []);
+
+  if (demo.dataError)
+    return (
+      <AsyncErrorState
+        className="mx-auto max-w-[680px]"
+        description="No pudimos cargar tus presupuestos, reservas ni recurrencias."
+        onRetry={() => setDemo({ dataError: false })}
+      />
+    );
 
   // One row per recurring series: its nearest upcoming occurrence, else its latest one.
   const series = new Map<string, Transaction>();
-  for (const t of state.transactions) {
-    if (!t.recurrence) continue;
-    const key = `${t.type}-${t.title}`;
+  for (const transaction of state.transactions) {
+    if (!transaction.recurrence) continue;
+    const key = `${transaction.type}-${transaction.title}`;
     const current = series.get(key);
     const better =
       !current ||
-      (isUpcoming(t) ? !isUpcoming(current) || t.date < current.date : !isUpcoming(current) && t.date > current.date);
-    if (better) series.set(key, t);
+      (isUpcoming(transaction)
+        ? !isUpcoming(current) || transaction.date < current.date
+        : !isUpcoming(current) && transaction.date > current.date);
+    if (better) series.set(key, transaction);
   }
   const recurring = [...series.values()];
+
+  function openNewBudget() {
+    setSelectedBudget(null);
+    setBudgetOpen(true);
+  }
 
   return (
     <div className="mx-auto max-w-[880px]">
       <p className="mb-3 text-[14px] leading-5 text-ink-2">
-        Organiza lo que viene: reservas, pagos que se repiten y metas. Esta sección está en construcción.
+        Organiza lo que viene: presupuestos del ciclo, reservas y movimientos que se repiten.
       </p>
       <Tabs label="Secciones del plan" controls="plan-panel" items={TABS} value={tab} onValueChange={setTab} />
 
-      <div id="plan-panel" role="tabpanel" aria-label={TABS.find((t) => t.value === tab)?.label} className="mt-4">
+      <div id="plan-panel" role="tabpanel" aria-label={TABS.find((item) => item.value === tab)?.label} className="mt-4">
         {tab === "reservas" && (
           <Card padding="none" id="reservas">
             <div className="flex items-center justify-between gap-3 px-3.5 pb-2 pt-3.5">
@@ -77,8 +101,13 @@ export function PlanView() {
             </div>
             {state.reserves.length ? (
               <div className="divide-y divide-line border-t border-line">
-                {state.reserves.map((r) => (
-                  <ReserveCard key={r.id} reserve={r} accountName={state.accounts.find((a) => a.id === r.accountId)?.shortName} />
+                {state.reserves.map((reserve) => (
+                  <ReserveCard
+                    key={reserve.id}
+                    reserve={reserve}
+                    accountName={state.accounts.find((account) => account.id === reserve.accountId)?.shortName}
+                    onSelect={setSelectedReserve}
+                  />
                 ))}
               </div>
             ) : (
@@ -96,33 +125,44 @@ export function PlanView() {
           <Card padding="none">
             <h2 className="px-3.5 pb-2 pt-3.5 text-[16px] font-bold text-ink">Se repiten</h2>
             <ul className="divide-y divide-line border-t border-line">
-              {recurring.map((t) => {
-                const Icon = CATEGORIES[t.categoryId].icon;
-                const next = isUpcoming(t) ? t.date : t.recurrence?.nextDate;
+              {recurring.map((transaction) => {
+                const Icon = CATEGORIES[transaction.categoryId].icon;
+                const next = isUpcoming(transaction) ? transaction.date : transaction.recurrence?.nextDate;
                 return (
-                  <li key={t.id} className="flex items-center gap-3 px-3.5 py-3">
-                    <span
-                      className={cn(
-                        "grid size-[38px] shrink-0 place-items-center rounded-[10px]",
-                        t.type === "income" ? "bg-positive-bg text-positive" : "bg-neutral-bg text-neutral",
-                      )}
+                  <li key={transaction.id}>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors duration-150 hover:bg-subtle"
+                      onClick={() => setSelectedRecurring(transaction)}
+                      aria-label={`Administrar recurrencia ${transaction.title}`}
                     >
-                      <Icon aria-hidden size={18} strokeWidth={1.8} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[15px] font-semibold text-ink">{t.title}</p>
-                      <p className="text-[13px] text-ink-2">
-                        {t.recurrence?.frequency}
-                        {next && ` · próxima ${formatDayMonth(next)}`}
-                      </p>
-                    </div>
-                    <MoneyValue
-                      amount={t.type === "expense" ? -t.amount : t.amount}
-                      currency={t.currency}
-                      sign={t.type === "income" ? "always" : "auto"}
-                      tone={t.type === "income" ? "positive" : "default"}
-                      className="shrink-0 text-[15px] font-semibold"
-                    />
+                      <span
+                        className={cn(
+                          "grid size-[38px] shrink-0 place-items-center rounded-[10px]",
+                          transaction.type === "income" ? "bg-positive-bg text-positive" : "bg-neutral-bg text-neutral",
+                        )}
+                      >
+                        <Icon aria-hidden size={18} strokeWidth={1.8} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-2">
+                          <span className="truncate text-[15px] font-semibold text-ink">{transaction.title}</span>
+                          {transaction.recurrence?.active === false && <Badge tone="outline">Pausada</Badge>}
+                        </span>
+                        <span className="block text-[13px] text-ink-2">
+                          {transaction.recurrence?.frequency}
+                          {next && ` · próxima ${formatDayMonth(next)}`}
+                        </span>
+                      </span>
+                      <MoneyValue
+                        amount={transaction.type === "expense" ? -transaction.amount : transaction.amount}
+                        currency={transaction.currency}
+                        sign={transaction.type === "income" ? "always" : "auto"}
+                        tone={transaction.type === "income" ? "positive" : "default"}
+                        className="shrink-0 text-[15px] font-semibold"
+                      />
+                      <ChevronRight aria-hidden size={16} strokeWidth={1.8} className="shrink-0 text-ink-3" />
+                    </button>
                   </li>
                 );
               })}
@@ -131,15 +171,67 @@ export function PlanView() {
         )}
 
         {tab === "presupuestos" && (
-          <Card>
-            <EmptyState
-              icon={Wallet}
-              title="Presupuestos por categoría"
-              description="Pronto podrás poner un tope a Alimentación, Transporte u Ocio y verlo junto a tu ritmo diario."
-            />
-            <div className="flex justify-center pb-2">
-              <Badge tone="outline">Próximamente</Badge>
+          <Card padding="none">
+            <div className="flex items-center justify-between gap-3 px-3.5 pb-2 pt-3.5">
+              <div>
+                <h2 className="text-[16px] font-bold text-ink">Presupuestos del ciclo</h2>
+                <p className="text-[13px] text-ink-2">Compara tus gastos sin apartar saldo.</p>
+              </div>
+              <Button size="sm" variant="secondary" onClick={openNewBudget}>
+                <Plus aria-hidden size={16} strokeWidth={2} />
+                Crear
+              </Button>
             </div>
+            {state.budgets.length ? (
+              <div className="divide-y divide-line border-t border-line">
+                {state.budgets.map((budget) => {
+                  const spent = budgetSpent(state, budget);
+                  const Icon = CATEGORIES[budget.categoryId].icon;
+                  return (
+                    <button
+                      key={budget.id}
+                      type="button"
+                      className="block w-full px-3.5 py-3 text-left transition-colors duration-150 hover:bg-subtle"
+                      onClick={() => {
+                        setSelectedBudget(budget);
+                        setBudgetOpen(true);
+                      }}
+                      aria-label={`Editar presupuesto de ${CATEGORIES[budget.categoryId].label}`}
+                    >
+                      <span className="flex items-center gap-3">
+                        <span className="grid size-[38px] shrink-0 place-items-center rounded-[10px] bg-primary-soft text-primary">
+                          <Icon aria-hidden size={18} strokeWidth={1.8} />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[15px] font-semibold text-ink">
+                            {CATEGORIES[budget.categoryId].label}
+                          </span>
+                          <span className={cn("text-[13px]", spent > budget.amount ? "text-risk" : "text-ink-2")}>
+                            <MoneyValue amount={spent} tone="inherit" /> de{" "}
+                            <MoneyValue amount={budget.amount} tone="inherit" />
+                          </span>
+                        </span>
+                        <ChevronRight aria-hidden size={16} strokeWidth={1.8} className="shrink-0 text-ink-3" />
+                      </span>
+                      <Progress
+                        className="mt-2.5"
+                        label={`Presupuesto de ${CATEGORIES[budget.categoryId].label}`}
+                        value={spent}
+                        max={budget.amount}
+                        valueText={`${spent} de ${budget.amount} córdobas`}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <EmptyState
+                icon={Wallet}
+                title="Todavía no tienes presupuestos."
+                description="Define un límite por categoría para este ciclo de pago."
+                action={{ label: "Crear presupuesto", onClick: openNewBudget }}
+              />
+            )}
           </Card>
         )}
 
@@ -151,7 +243,12 @@ export function PlanView() {
               description="Suma a tu ahorro cuando te sobre algo, sin comprometer tu colchón."
               action={{
                 label: "Crear aporte",
-                onClick: () => toast({ title: "Disponible pronto", description: "Los aportes voluntarios llegan en la próxima fase.", tone: "info" }),
+                onClick: () =>
+                  toast({
+                    title: "Disponible pronto",
+                    description: "Los aportes voluntarios llegan en la próxima fase.",
+                    tone: "info",
+                  }),
               }}
             />
           </Card>
@@ -173,6 +270,17 @@ export function PlanView() {
         <Repeat aria-hidden size={16} strokeWidth={1.8} />
         Las recurrencias omitidas no se borran: continúan en la siguiente fecha.
       </p>
+
+      <ReserveDetailSheet reserve={selectedReserve} onClose={() => setSelectedReserve(null)} />
+      <RecurringDetailSheet transaction={selectedRecurring} onClose={() => setSelectedRecurring(null)} />
+      <BudgetDetailSheet
+        open={budgetOpen}
+        budget={selectedBudget}
+        onClose={() => {
+          setBudgetOpen(false);
+          setSelectedBudget(null);
+        }}
+      />
     </div>
   );
 }

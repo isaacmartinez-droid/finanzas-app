@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type {
   Account,
+  Budget,
   CategoryId,
   Currency,
   FinanceState,
@@ -31,6 +32,21 @@ export interface ReserveInput {
   accountId: string;
 }
 
+export interface ReserveUpdateInput extends ReserveInput {
+  id: string;
+}
+
+export interface BudgetInput {
+  amount: number;
+  categoryId: CategoryId;
+}
+
+export interface RecurrenceUpdateInput {
+  transactionId: string;
+  frequency: "Semanal" | "Quincenal" | "Mensual";
+  active: boolean;
+}
+
 export interface TransferInput {
   amount: number;
   fromId: string;
@@ -42,6 +58,8 @@ export interface DemoFlags {
   slowLoading: boolean;
   /** Makes the simulator fail so the error state can be reviewed. */
   simulatorError: boolean;
+  /** Development/test-only fallback for the main async views. */
+  dataError: boolean;
 }
 
 type Action =
@@ -49,6 +67,12 @@ type Action =
   | { type: "expense"; id: string; input: MovementInput }
   | { type: "income"; id: string; input: MovementInput }
   | { type: "reserve"; id: string; input: ReserveInput }
+  | { type: "update-reserve"; input: ReserveUpdateInput }
+  | { type: "release-reserve"; id: string }
+  | { type: "add-budget"; id: string; input: BudgetInput }
+  | { type: "update-budget"; id: string; input: BudgetInput }
+  | { type: "delete-budget"; id: string }
+  | { type: "update-recurrence"; input: RecurrenceUpdateInput }
   | { type: "transfer"; id: string; input: TransferInput }
   | { type: "mark-received"; id: string }
   | { type: "omit"; id: string };
@@ -116,6 +140,91 @@ function reducer(state: FinanceState, action: Action): FinanceState {
           ...state.changesToday,
           { id: `chg-${action.id}`, label: `Reserva: ${input.name}`, delta: -input.amount },
         ],
+      };
+    }
+
+    case "update-reserve": {
+      const current = state.reserves.find((reserve) => reserve.id === action.input.id);
+      if (!current) return state;
+      const amount = round2(action.input.amount);
+      const freeDelta = round2(current.amount - amount);
+      return {
+        ...state,
+        reserves: state.reserves.map((reserve) =>
+          reserve.id === current.id
+            ? { ...reserve, name: action.input.name, amount, accountId: action.input.accountId }
+            : reserve,
+        ),
+        changesToday:
+          freeDelta === 0
+            ? state.changesToday
+            : [
+                ...state.changesToday,
+                {
+                  id: `chg-update-${current.id}-${state.changesToday.length}`,
+                  label: `Ajuste de reserva: ${action.input.name}`,
+                  delta: freeDelta,
+                },
+              ],
+      };
+    }
+
+    case "release-reserve": {
+      const current = state.reserves.find((reserve) => reserve.id === action.id);
+      if (!current) return state;
+      return {
+        ...state,
+        reserves: state.reserves.filter((reserve) => reserve.id !== action.id),
+        changesToday: [
+          ...state.changesToday,
+          {
+            id: `chg-release-${current.id}-${state.changesToday.length}`,
+            label: `Reserva liberada: ${current.name}`,
+            delta: current.amount,
+          },
+        ],
+      };
+    }
+
+    case "add-budget": {
+      const budget: Budget = {
+        id: `budget-${action.id}`,
+        categoryId: action.input.categoryId,
+        amount: round2(action.input.amount),
+      };
+      return { ...state, budgets: [...state.budgets, budget] };
+    }
+
+    case "update-budget":
+      return {
+        ...state,
+        budgets: state.budgets.map((budget) =>
+          budget.id === action.id
+            ? { ...budget, categoryId: action.input.categoryId, amount: round2(action.input.amount) }
+            : budget,
+        ),
+      };
+
+    case "delete-budget":
+      return { ...state, budgets: state.budgets.filter((budget) => budget.id !== action.id) };
+
+    case "update-recurrence": {
+      const source = state.transactions.find((transaction) => transaction.id === action.input.transactionId);
+      if (!source?.recurrence) return state;
+      return {
+        ...state,
+        transactions: state.transactions.map((transaction) =>
+          transaction.recurrence && transaction.type === source.type && transaction.title === source.title
+            ? {
+                ...transaction,
+                recurrence: {
+                  ...transaction.recurrence,
+                  frequency: action.input.frequency,
+                  active: action.input.active,
+                },
+              }
+            : transaction,
+        ),
       };
     }
 
@@ -193,6 +302,12 @@ interface FinanceContextValue {
   addExpense: (input: MovementInput) => void;
   addIncome: (input: MovementInput) => void;
   addReserve: (input: ReserveInput) => void;
+  updateReserve: (input: ReserveUpdateInput) => void;
+  releaseReserve: (id: string) => void;
+  addBudget: (input: BudgetInput) => void;
+  updateBudget: (id: string, input: BudgetInput) => void;
+  deleteBudget: (id: string) => void;
+  updateRecurrence: (input: RecurrenceUpdateInput) => void;
   transfer: (input: TransferInput) => void;
   markReceived: (id: string) => void;
   omitOccurrence: (id: string) => void;
@@ -207,7 +322,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, DEFAULT_SCENARIO, buildScenario);
   const [scenario, setScenarioId] = useState<ScenarioId>(DEFAULT_SCENARIO);
   const [isLoading, setLoading] = useState(false);
-  const [demo, setDemoState] = useState<DemoFlags>({ slowLoading: false, simulatorError: false });
+  const [demo, setDemoState] = useState<DemoFlags>({ slowLoading: false, simulatorError: false, dataError: false });
   const loadTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => () => clearTimeout(loadTimer.current), []);
@@ -239,10 +354,21 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       demo,
       accountById: (id) => state.accounts.find((a) => a.id === id),
       setScenario,
-      setDemo: (patch) => setDemoState((d) => ({ ...d, ...patch })),
+      setDemo: (patch) =>
+        setDemoState((current) => ({
+          ...current,
+          ...patch,
+          dataError: process.env.NODE_ENV === "production" ? false : (patch.dataError ?? current.dataError),
+        })),
       addExpense: (input) => dispatch({ type: "expense", id: newId(), input }),
       addIncome: (input) => dispatch({ type: "income", id: newId(), input }),
       addReserve: (input) => dispatch({ type: "reserve", id: newId(), input }),
+      updateReserve: (input) => dispatch({ type: "update-reserve", input }),
+      releaseReserve: (id) => dispatch({ type: "release-reserve", id }),
+      addBudget: (input) => dispatch({ type: "add-budget", id: newId(), input }),
+      updateBudget: (id, input) => dispatch({ type: "update-budget", id, input }),
+      deleteBudget: (id) => dispatch({ type: "delete-budget", id }),
+      updateRecurrence: (input) => dispatch({ type: "update-recurrence", input }),
       transfer: (input) => dispatch({ type: "transfer", id: newId(), input }),
       markReceived: (id) => dispatch({ type: "mark-received", id }),
       omitOccurrence: (id) => dispatch({ type: "omit", id }),
