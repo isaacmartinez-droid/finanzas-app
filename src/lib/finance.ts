@@ -8,6 +8,7 @@ import type {
   ProjectionLine,
   Transaction,
 } from "@/types/finance";
+import { adaptFinanceState, moneyToNumber } from "./financial-engine-adapter";
 import { daysBetween, formatDayMonth } from "./dates";
 import { round2, toNio } from "./format";
 
@@ -75,22 +76,15 @@ export function budgetSpent(state: FinanceState, budget: Budget): number {
   );
 }
 
-/** Events strictly between today and payday that move free money. */
-function eventsBeforePayday(state: FinanceState): Transaction[] {
-  return state.transactions
-    .filter((t) => isUpcoming(t) && t.date > state.today && t.date < state.payday.date)
-    .filter((t) => t.type === "income" || t.type === "expense")
-    .sort((a, b) => a.date.localeCompare(b.date));
-}
-
 export function getSnapshot(state: FinanceState): FinancialSnapshot {
-  const operating = sum(operationalAccounts(state.accounts).map((a) => a.balance));
-  const protectedSavings = sum(savingsAccounts(state.accounts).map((a) => a.balance));
-  const reserved = sum(state.reserves.map((r) => r.amount));
-  const committed = sum(state.commitments.map((c) => c.amount));
+  const engine = adaptFinanceState(state);
+  const operating = moneyToNumber(engine.position.operatingBalance);
+  const protectedSavings = moneyToNumber(engine.protectedSavings);
+  const reserved = moneyToNumber(engine.reservationTotal);
+  const committed = moneyToNumber(engine.obligationTotal);
   const cushion = state.cushion;
 
-  const free = round2(operating - reserved - committed - cushion);
+  const free = moneyToNumber(engine.position.freeMoney);
   const daysRemaining = Math.max(1, daysBetween(state.today, state.payday.date));
   const cycleDays = Math.max(1, daysBetween(state.cycleStart, state.payday.date));
   const comfortThreshold = round2(state.comfortDailyTarget * daysRemaining);
@@ -100,13 +94,15 @@ export function getSnapshot(state: FinanceState): FinancialSnapshot {
   const netChange = sum(state.changesToday.map((c) => c.delta));
 
   const lines: ProjectionLine[] = [{ id: "free", label: "Dinero libre hoy", amount: free }];
-  for (const event of eventsBeforePayday(state)) {
-    const nio = round2(toNio(event.amount, event.currency, state.exchangeRate));
+  for (const { source, event } of engine.plannedEvents
+    .filter((item) => item.event.occursOn > state.today && item.event.occursOn < state.payday.date)
+    .sort((left, right) => left.event.occursOn.localeCompare(right.event.occursOn))) {
+    const nio = moneyToNumber(event.amount);
     lines.push({
       id: event.id,
-      label: `${event.title} · ${formatDayMonth(event.date)}`,
-      amount: event.type === "income" ? nio : -nio,
-      date: event.date,
+      label: `${source.title} · ${formatDayMonth(event.occursOn)}`,
+      amount: event.kind === "income" ? nio : -nio,
+      date: event.occursOn,
     });
   }
   if (pace.distributable > 0) {
@@ -125,7 +121,7 @@ export function getSnapshot(state: FinanceState): FinancialSnapshot {
     cushion,
     protectedSavings,
     free,
-    spendableToday: Math.min(Math.max(0, free), operating),
+    spendableToday: moneyToNumber(engine.position.spendableToday),
     shortfall: round2(Math.max(0, -free)),
     daysRemaining,
     cycleDays,
@@ -134,7 +130,7 @@ export function getSnapshot(state: FinanceState): FinancialSnapshot {
     pace,
     yesterdayFree: round2(free - netChange),
     netChange,
-    projection: { amount: sum(lines.map((l) => l.amount)), date: state.payday.date, lines },
+    projection: { amount: round2(moneyToNumber(engine.projectedFreeMoney) - pace.distributable), date: state.payday.date, lines },
     pendingSavingsTransfer: sum(state.reserves.filter((r) => r.purpose === "savings").map((r) => r.amount)),
   };
 }

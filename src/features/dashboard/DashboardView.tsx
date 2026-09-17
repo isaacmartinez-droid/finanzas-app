@@ -21,14 +21,19 @@ import { isUpcoming, lastReceivedIncome, nextIncome, timelineEvents } from "@/li
 import { toTimelineEntry } from "@/lib/timeline";
 import { TransactionDetailSheet } from "@/features/transactions/TransactionDetailSheet";
 import { useFinance } from "@/hooks/use-finance";
+import { useAuthenticatedUser } from "@/hooks/use-authenticated-user";
 import { useShell } from "@/hooks/use-shell";
+import { PersistedAccountsDashboard } from "@/features/accounts/PersistedAccountsDashboard";
 import { DashboardSkeleton } from "./DashboardSkeleton";
 import s from "./dashboard.module.css";
 
 export function DashboardView() {
   const { state, snapshot, isLoading, demo, setDemo } = useFinance();
+  const authenticatedUser = useAuthenticatedUser();
   const { openForm } = useShell();
   const [selected, setSelected] = useState<Transaction | null>(null);
+
+  if (authenticatedUser) return <PersistedAccountsDashboard />;
 
   if (demo.dataError)
     return (

@@ -2,6 +2,28 @@
 
 Fuentes: [tipos](../src/types/finance.ts), [motor central](../src/lib/finance.ts), [reducer](../src/hooks/use-finance.tsx), [simulador](../src/features/simulator/simulate.ts). Los ejemplos son datos demo, no asesoría ni valores reales del usuario.
 
+## FinancialEngine v1
+
+El motor vive en [`src/domain/financial-engine/`](../src/domain/financial-engine/). Es TypeScript puro, no consulta React, navegador, API ni base de datos. [`getSnapshot()`](../src/lib/finance.ts) lo consume mediante [`financial-engine-adapter.ts`](../src/lib/financial-engine-adapter.ts), que transforma el estado mock legado sin volver a importar su historial ya reflejado en saldos.
+
+Separa planificación de realidad:
+
+```text
+RecurringRule / RecurringOccurrence / PlannedFinancialEvent
+                          ↓ al ocurrir
+LedgerTransaction → LedgerEntry
+                          ↓ interpreta
+Reservation / Obligation / SavingsFund
+                          ↓ calcula
+FinancialEngine
+```
+
+Un `LedgerTransaction` es un hecho confirmado e inmutable, con dos o más entradas cuyo total en NIO debe ser cero. Una corrección futura se expresará como reversión o ajuste contable, no editando el hecho original. Una transferencia entre cuentas genera entradas negativas/positivas y no es un gasto.
+
+La fuente de verdad del saldo es `openingBalance + entradas posted`. Un futuro `current_balance` persistido sólo es caché: `reconcileAccounts()` lo compara contra el saldo calculado y expone cualquier *drift*; no lo usa como entrada del cálculo.
+
+Valores de dinero del motor se representan como unidades menores `bigint`, no `number`. El cambio se captura con ocho decimales y el redondeo ocurre sólo sobre el importe convertido: `US$175.00 × 36.62430000 = C$6,409.2525 → C$6,409.25`.
+
 ## Conceptos y fórmula
 
 | Concepto | Origen y significado |
@@ -19,6 +41,17 @@ free = round2(operating - reserved - committed - cushion)
 spendableToday = min(max(0, free), operating)
 shortfall = round2(max(0, -free))
 ```
+
+En el motor, la misma regla se nombra explícitamente:
+
+```text
+OperatingBalance = suma de saldos ledger de cuentas operativas
+ProtectedCurrentFunds = reservas activas + obligaciones no financiadas
+FreeBeforeCushion = OperatingBalance - ProtectedCurrentFunds
+FreeMoney = FreeBeforeCushion - OperatingCushion
+```
+
+`FreeMoney` permanece firmado. `spendableToday` es la vista acotada a cero, no una alteración de la realidad calculada.
 
 El ahorro protegido no se resta otra vez. No truncar `free` en el desglose: que el hero muestre cero no elimina el faltante.
 
@@ -70,6 +103,8 @@ Límite positivo elegido por el usuario para una categoría durante el ciclo act
 `simulatePurchase()` es puro: resta la compra a libre/operativo y usa `computeStatus()`. Cómodo → Seguro; Ajustado → Posible, pero ajustado; riesgo/déficit → No recomendado. Saldo insuficiente en la cuenta elegida también fuerza No recomendado. Si se agotan protecciones: colchón, reservas y compromisos, en ese orden; ahorro protegido separado permanece intacto.
 
 `lastReceivedIncome()` obtiene el último ingreso con estado `received`. `IncomeAllocationCard` convierte ese importe a NIO y presenta el flujo. El modelo no define ahorro automático; la integración no pasa una deducción y muestra “No configurado”. Ver [el bloqueo](pending.md).
+
+El FinancialEngine v1 define la regla para el futuro caso de uso persistente: ante `PERSONAL_INCOME`, reserva `min(C$1,000, efectivo neto recibido)` y registra el faltante. El neto es `bruto - compensación`; una compensación nunca puede exceder el bruto. `EARMARKED` crea una reserva por el efectivo neto recibido y no activa la regla de ahorro. `REFUND` y `TRANSFER` tampoco la activan. La UI actual conserva “No configurado” porque los `Transaction` mock todavía no almacenan `fundingPurpose` ni una asignación persistida; no se infiere una regla sobre ingresos históricos.
 
 ## Mocks y escenarios
 

@@ -12,7 +12,7 @@ Para cerrarlo se necesita una definición explícita del monto/porcentaje, condi
 
 ## Limitaciones del prototipo, no nuevas funcionalidades prometidas
 
-- Datos financieros en memoria; no persistencia ni autenticación real.
+- Las pantallas mantienen datos financieros en memoria; la API de cuentas/ledger y Auth0 no están conectados a la UI ni verificados contra un tenant real.
 - Presupuestos del ciclo actual, sin rollover/historial por ciclo ni bloqueo de compras.
 - Series recurrentes existentes agrupadas por tipo/título; frecuencia es metadata, sin generación de ocurrencias ni cambio de fechas ya registradas.
 - Sin creación completa de nuevas series o programación de pagos.

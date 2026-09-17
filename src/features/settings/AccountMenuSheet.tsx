@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, LogOut } from "lucide-react";
 import { Avatar } from "@/components/navigation/Brand";
 import { SIDEBAR_NAV } from "@/components/navigation/nav-items";
 import { Switch } from "@/components/ui/Feedback";
@@ -9,7 +9,9 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { Sheet } from "@/components/ui/Sheet";
 import { mockUser } from "@/mocks/user";
 import { usePreferences, type ThemePreference } from "@/hooks/use-preferences";
+import { useAuthenticatedUser } from "@/hooks/use-authenticated-user";
 import { useShell } from "@/hooks/use-shell";
+import { buttonClasses } from "@/components/ui/Button";
 import { ScenarioPicker } from "./ScenarioPicker";
 
 export const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
@@ -25,19 +27,33 @@ export const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
 export function AccountMenuSheet() {
   const { accountMenuOpen, closeAccountMenu } = useShell();
   const { theme, setTheme, amountsHidden, toggleAmounts } = usePreferences();
+  const authenticatedUser = useAuthenticatedUser();
   const secondary = SIDEBAR_NAV.slice(4);
+  const displayName = authenticatedUser?.displayName ?? `${mockUser.firstName} ${mockUser.lastName}`;
+  const initials = authenticatedUser?.initials ?? mockUser.initials;
 
   return (
     <Sheet open={accountMenuOpen} onClose={closeAccountMenu} title="Tu cuenta" desktop="drawer" size="sm">
       <div className="flex items-center gap-3 rounded-[12px] bg-subtle p-3">
-        <Avatar initials={mockUser.initials} className="size-11 text-[15px]" />
+        <Avatar initials={initials} className="size-11 text-[15px]" />
         <div className="min-w-0">
           <p className="truncate text-[15px] font-bold text-ink">
-            {mockUser.firstName} {mockUser.lastName}
+            {displayName}
           </p>
-          <p className="text-[13px] text-ink-2">Prototipo · datos simulados</p>
+          <p className="truncate text-[13px] text-ink-2">{authenticatedUser?.email ?? "Prototipo · datos simulados"}</p>
         </div>
       </div>
+
+      {authenticatedUser && (
+        <a
+          href="/auth/logout"
+          onClick={closeAccountMenu}
+          className={buttonClasses({ variant: "secondary", size: "sm", fullWidth: true, className: "mt-3" })}
+        >
+          <LogOut aria-hidden size={17} strokeWidth={1.8} />
+          Cerrar sesión
+        </a>
+      )}
 
       <section aria-labelledby="menu-more" className="mt-5 md:hidden">
         <h3 id="menu-more" className="text-[13px] font-semibold text-ink-2">
